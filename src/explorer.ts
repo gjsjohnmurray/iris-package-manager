@@ -75,11 +75,7 @@ export class Explorer extends vscode.Disposable {
 			this._disposables,
 		);
 
-        console.log((rows ? rows.map((row: any) => `
-        <vscode-table-row>
-          <vscode-table-cell>${row.Name}</vscode-table-cell>
-          <vscode-table-cell>${row.VersionString}</vscode-table-cell>
-        </vscode-table-row>`).join('') : ''));
+    // We are using VSCode Elements (see https://vscode-elements.github.io/)
 
 		const html = `<!DOCTYPE html>
 <html lang="en">
