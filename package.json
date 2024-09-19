@@ -1,0 +1,90 @@
+{
+  "name": "iris-package-manager",
+  "displayName": "InterSystems Package Manager",
+  "description": "Manage IPM /ZPM packages on your InterSystems servers",
+  "version": "0.0.1-SNAPSHOT",
+  "publisher": "georgejames",
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "icon": "media/extension-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gjsjohnmurray/iris-package-manager"
+  },
+  "contributors": [
+    {
+      "name": "John Murray",
+      "email": "johnm@georgejames.com"
+    }
+  ],
+  "sponsor": {
+    "url": "https://github.com/sponsors/gjsjohnmurray"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:intersystems-community_servermanager"
+  ],
+  "extensionDependencies": [
+    "intersystems-community.servermanager"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "iris-package-manager.intersystems-servermanager",
+        "title": "Package Manager",
+        "icon": "$(package)"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "iris-package-manager.intersystems-servermanager",
+          "when": "view == intersystems-community_servermanager && viewItem =~ /namespace$/",
+          "group": "inline@20"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "iris-package-manager.intersystems-servermanager",
+          "when": "false"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "axios-cookiejar-support": "^5.0.2",
+    "tough-cookie": "^4.1.4",
+    "@vscode-elements/elements": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.92.0",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "20.x",
+    "@types/tough-cookie": "4.0.5",
+    "@typescript-eslint/eslint-plugin": "^7.14.1",
+    "@typescript-eslint/parser": "^7.11.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.5",
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4",
+    "@vscode/test-cli": "^0.0.9",
+    "@vscode/test-electron": "^2.4.0"
+  }
+}
