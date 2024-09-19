@@ -2,7 +2,7 @@
 .vscode-test/**
 out/**
 node_modules/**
-!node_modules/swagger-ui-dist/**
+!node_modules/@vscode-elements/elements/dist/bundled.js
 src/**
 .gitignore
 .yarnrc

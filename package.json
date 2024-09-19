@@ -44,7 +44,7 @@
         {
           "command": "iris-package-manager.intersystems-servermanager",
           "when": "view == intersystems-community_servermanager && viewItem =~ /namespace$/",
-          "group": "inline@20"
+          "group": "inline@25"
         }
       ],
       "commandPalette": [
