@@ -43,7 +43,7 @@
       "view/item/context": [
         {
           "command": "iris-package-manager.intersystems-servermanager",
-          "when": "view == intersystems-community_servermanager && viewItem =~ /namespace$/",
+          "when": "view == intersystems-community_servermanager && viewItem =~ /namespace$/ && viewItem > 6",
           "group": "inline@25"
         }
       ],
