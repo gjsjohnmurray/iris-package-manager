@@ -1,14 +1,34 @@
 import * as vscode from 'vscode';
+import WebSocket = require("ws");
 import { makeRESTRequest, resolveCredentials } from './makeRESTRequest';
 import { IServerSpec, mapExplorers, ourExtensionUri, serverManagerApi } from './extension';
 
-export class Explorer extends vscode.Disposable {
+/** Data received from the WebSocket */
+interface WebSocketMessage {
+    /** The type of the message */
+    type: "prompt" | "read" | "error" | "output" | "init" | "color";
+    /** The text of the message. Present for all types but "read" and "init". */
+    text?: string;
+    /** The WebSocket protocol version. Only present for "init". */
+    protocol?: number;
+    /** The InterSystems IRIS `$ZVERSION`. Only present for "init". */
+    version?: string;
+}
 
+const COMMAND_PLACEHOLDER = "Enter an IPM command. Enter '?' for brief help or click the \u24D8 icon for more.";
+  
+export class Explorer extends vscode.Disposable {
     public serverId: string;
     public namespace: string;
 
     private _disposables: vscode.Disposable[] = [];
+    private _serverSpec: IServerSpec | undefined;
+    private _cookies: string[] = [];
     private _panel: vscode.WebviewPanel | undefined;
+    private _socket: WebSocket | undefined;
+    private _commandCounter = 0;
+    private _state: "prompt" | "read" | "eval" = "eval";
+    private _lastCommand = "";
 
     constructor(serverId: string, namespace: string) {
         super(() => {
@@ -20,91 +40,119 @@ export class Explorer extends vscode.Disposable {
 
     public async initialize(): Promise<string> {
         if (!ourExtensionUri) {
-            return 'Error: ourAssetPath is not set.';
+            return "Error: ourAssetPath is not set.";
         }
-		const serverSpec: IServerSpec = await serverManagerApi.getServerSpec(this.serverId);
-		if (!serverSpec) {
-			return `Server definition '${this.serverId}' not found.`;
-		}
+        this._serverSpec = await serverManagerApi.getServerSpec(
+            this.serverId
+        );
+        if (!this._serverSpec) {
+            return `Server definition '${this.serverId}' not found.`;
+        }
 
-
-		// Always resolve credentials because even though the /api/mgmnt endpoint may permit unauthenticated access the endpoints we are interested in may not.
-		await resolveCredentials(serverSpec);
-		const response = await makeRESTRequest('POST', serverSpec, { apiVersion: 1, namespace: this.namespace, path: '/action/query' }, { query: 'SELECT * FROM %ZPM_PackageManager_Developer."Module"' });
-		if (!response) {
-			return `Failed to retrieve server '${this.serverId}' information.`;
-		}
+        // Always resolve credentials because even though the /api/mgmnt endpoint may permit unauthenticated access the endpoints we are interested in may not.
+        await resolveCredentials(this._serverSpec);
+        const response = await makeRESTRequest(
+            "POST",
+            this._serverSpec,
+            { apiVersion: 1, namespace: this.namespace, path: "/action/query" },
+            { query: 'SELECT * FROM %ZPM_PackageManager_Developer."Module"' }
+        );
+        if (!response) {
+            return `Failed to retrieve server '${this.serverId}' information.`;
+        }
         if (response?.status !== 200) {
             return `Failed to retrieve server '${this.serverId}' information. Status: ${response?.status}`;
         }
+        this._cookies = response.headers["set-cookie"] || [];
         const rows = response.data?.result?.content;
 
-		// Create and show a new webview
-        const assetsUri = vscode.Uri.joinPath(ourExtensionUri, 'assets');
-        const nodeModulesUri = vscode.Uri.joinPath(ourExtensionUri, 'node_modules');
+        // Create and show a new webview
+        const assetsUri = vscode.Uri.joinPath(ourExtensionUri, "assets");
+        const nodeModulesUri = vscode.Uri.joinPath(ourExtensionUri, "node_modules");
         const panel = vscode.window.createWebviewPanel(
-                'georgejames.iris-package-manager.explorer',
-                `IPM (${this.namespace} on ${this.serverId})`,
-                vscode.ViewColumn.Active,
-                {
-                    localResourceRoots: [
-                        assetsUri,
-                        nodeModulesUri,
-                    ],
-                    retainContextWhenHidden: true, // Keep the page when its tab is not visible, otherwise it will be reloaded when the tab is revisited.
-                    enableScripts: true,
-                    enableFindWidget: true,
-                }
+            "georgejames.iris-package-manager.explorer",
+            `IPM (${this.namespace} on ${this.serverId})`,
+            vscode.ViewColumn.Active,
+            {
+                localResourceRoots: [assetsUri, nodeModulesUri],
+                retainContextWhenHidden: true, // Keep the page when its tab is not visible, otherwise it will be reloaded when the tab is revisited.
+                enableScripts: true,
+                enableFindWidget: true,
+            }
         );
-        panel.onDidDispose(() => {
-            this.dispose();
-        }, null, this._disposables);
-        panel.iconPath = vscode.Uri.joinPath(assetsUri, 'fileIcon.svg');
+        panel.onDidDispose(
+            () => {
+                this.dispose();
+            },
+            null,
+            this._disposables
+        );
+        panel.iconPath = vscode.Uri.joinPath(assetsUri, "fileIcon.svg");
         this._panel = panel;
 
-		const webview = panel.webview;
-		webview.onDidReceiveMessage(
-			message => {
-				switch (message.command) {
-					case 'ready':
-						webview.postMessage({ command: 'load', serverSpec, namespace: this.namespace, rows });
-						return;
-          case 'run':
-            const now = new Date();
+        const webview = panel.webview;
+        webview.onDidReceiveMessage(
+            (message) => {
+                switch (message.command) {
+                    case "ready":
+                        webview.postMessage({
+                            command: "load",
+                            serverSpec: this._serverSpec,
+                            namespace: this.namespace,
+                            rows,
+                        });
+                        this._state = "prompt";
+                        return;
+                    case "input":
+                        const input = message.text;
+                        if (this._socket) {
+                            if (this._state === "prompt") {
+                                if (input !== "") {
+                                    this._lastCommand = input;
+                                    this.output(`\n[${++this._commandCounter}]zpm:${this.namespace}> ${input}\n`);
+                                    webview.postMessage({
+                                        command: "setCommand",
+                                        text: "",
+                                        placeholder: `Command '${input}' is running. If this message persists, check for input question below.`
+                                    });
+                                    this._socket.send(JSON.stringify({ type: "prompt", input: `if $zpm("${input.replace(/"/g, '""')}")` }));
+                                    this._state = "eval";
+                                }
+                            } else if (this._state === "read") {
+                                this.output(`${input}\n`);
+                                this._socket.send(JSON.stringify({ type: "read", input: input }));
+                                this._state = "eval";
+                            }
+                        }
+                        return;
+                    case "help":
+                        vscode.env.openExternal(vscode.Uri.parse("https://github.com/intersystems/ipm/wiki/02.-CLI-commands"));
+                        return;
+                }
+            },
+            undefined,
+            this._disposables
+        );
 
-            // Format the date
-            const formattedDate = now.toLocaleDateString(undefined, {
-              dateStyle: 'medium',
-            });
+        // We are using VSCode Elements (see https://vscode-elements.github.io/)
 
-            // Format the time
-            const formattedTime = now.toLocaleTimeString(undefined, {
-              timeStyle: 'medium',
-              hour12: false,
-            });
-
-            const command = message.text;
-            webview.postMessage({
-              command: 'output',
-              text: `Command issued at ${formattedTime} on ${formattedDate} was:\n'${command}'\n\nOutput here (TODO)`,
-            });
-            return;
-				}
-			},
-			undefined,
-			this._disposables,
-		);
-
-    // We are using VSCode Elements (see https://vscode-elements.github.io/)
-
-		const html = `<!DOCTYPE html>
+        const html =
+`<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8">
     <title>IPM</title>
     <link
       rel="stylesheet"
-      href="${webview.asWebviewUri(vscode.Uri.joinPath(nodeModulesUri, '@vscode', 'codicons', 'dist', 'codicon.css'))}"
+      href="${webview.asWebviewUri(
+        vscode.Uri.joinPath(
+          nodeModulesUri,
+          "@vscode",
+          "codicons",
+          "dist",
+          "codicon.css"
+        )
+      )}"
       id="vscode-codicon-stylesheet"
     />
   </head>
@@ -118,15 +166,21 @@ export class Explorer extends vscode.Disposable {
             <vscode-table-header-cell>Display Name</vscode-table-header-cell>
             <vscode-table-header-cell>Description</vscode-table-header-cell>
           </vscode-table-header>
-          <vscode-table-body slot="body">`
-            + (rows ? rows.map((row: any) => `
+          <vscode-table-body slot="body">` +
+      (rows
+        ? rows
+            .map(
+              (row: any) => `
             <vscode-table-row>
               <vscode-table-cell>${row.Name}</vscode-table-cell>
               <vscode-table-cell>${row.VersionString}</vscode-table-cell>
               <vscode-table-cell>${row.ExternalName}</vscode-table-cell>
               <vscode-table-cell>${row.Description}</vscode-table-cell>
-            </vscode-table-row>`).join('') : '')
-            + `
+            </vscode-table-row>`
+            )
+            .join("")
+        : "") +
+      `
           </vscode-table-body>
         </vscode-table>
       </p>
@@ -134,43 +188,66 @@ export class Explorer extends vscode.Disposable {
     <p>
       <vscode-textfield
         id="tfCommand"
-        placeholder="Type an IPM command to run"
+        placeholder="${COMMAND_PLACEHOLDER}"
       >
-        <vscode-icon
-          slot="content-before"
-          name="package"
-          title="IPM Shell"
-        ></vscode-icon>
         <vscode-badge
           slot="content-before"
         >zpm:${this.namespace}&gt;</vscode-badge>
+        <vscode-icon
+          slot="content-after"
+          id="btnClear"
+          name="clear-all"
+          title="Clear Input and Output"
+          action-icon
+        ></vscode-icon>
+        <vscode-icon
+          slot="content-after"
+          id="btnHelp"
+          name="info"
+          title="IPM Commands Documentation on GitHub"
+          action-icon
+        ></vscode-icon>
       </vscode-textfield>
       <br/>
       <br/>
       <vscode-textarea
         id="taOutput"
-        placeholder="Output of command will appear here"
+        placeholder="Output of commands will appear here.\nIf a command prompts for input while executing, enter it in the text field above."
         readonly
         monospace
         cols="80"
         rows="24"
         resize="both"
-      ></vscode-textarea>
+      >
+      </vscode-textarea>
     </p>
     
     <script
-      src="${webview.asWebviewUri(vscode.Uri.joinPath(nodeModulesUri, '@vscode-elements', 'elements', 'dist', 'bundled.js'))}"
+      src="${webview.asWebviewUri(
+        vscode.Uri.joinPath(
+          nodeModulesUri,
+          "@vscode-elements",
+          "elements",
+          "dist",
+          "bundled.js"
+        )
+      )}"
       type="module"
     ></script>
     <script
-      src="${webview.asWebviewUri(vscode.Uri.joinPath(assetsUri, 'explorerScript.js'))}"
+      src="${webview.asWebviewUri(
+        vscode.Uri.joinPath(assetsUri, "explorerScript.js")
+      )}"
       type="module"
     ></script>
   </body>
 </html>`;
 
-		webview.html = html;
-        return '';
+        webview.html = html;
+
+        this.createSocket();
+        
+        return "";
     }
 
     public show() {
@@ -178,9 +255,115 @@ export class Explorer extends vscode.Disposable {
             this._panel.reveal();
         }
     }
+    
+    private createSocket() {
+        if (!this._serverSpec) {
+            return;
+        }
+        const { scheme, host, port, pathPrefix } = this._serverSpec?.webServer;
+        try {
+            // Open the WebSocket
+            this._socket = new WebSocket(`${scheme === "https" ? "wss" : "ws"}://${host}:${port}${pathPrefix}/api/atelier/v7/${encodeURIComponent("%SYS")}/terminal`, {
+                rejectUnauthorized: vscode.workspace
+                    .getConfiguration("http")
+                    .get("proxyStrictSSL"),
+                headers: {
+                    cookie: this._cookies,
+                },
+            });
+        } catch (error) {
+            return;
+        }
+        // Add event handlers to the socket
+        this._socket
+            .on("error", (error) => {
+                // TODO
+            })
+            .on("close", () => {
+                // TODO
+            })
+            .on("message", (data: string) => {
+                let message: WebSocketMessage;
+                try {
+                    message = JSON.parse(data);
+                } catch {
+                    return;
+                }
+
+                // Bizarrely this is needed to avoid us being told later it could be undefined
+                if (!this._socket) {
+                    return;
+                }
+                switch (message.type) {
+                    case "error":
+                        // TODO
+                        break;
+                    case "output":
+                        if (message.text) {
+                            this.output(message.text);
+                        }
+                        if (this._panel) {
+                            // Delay appearance of input prompt placeholder until after the output stops
+                            this._panel.webview.postMessage({
+                                command: "setCommand",
+                                text: "",
+                            });
+                        }
+                        break;
+                    case "read":
+                        this._state = "read";
+                        break;
+                    case "prompt":
+                        // Write an end-of-output marker the same length as the prompt part of the echoed next command
+                        if (this._commandCounter > 0) {
+                            this.output(`\n\u2500[${this._commandCounter}]${"\u2500".repeat(4 + this.namespace.length)}`);
+                        }
+                        if (this._panel) {
+                            this._panel.webview.postMessage({
+                                command: "setCommand",
+                                text: this._lastCommand,
+                                placeholder: COMMAND_PLACEHOLDER,
+                            });
+                        }
+                        this._state = "prompt";
+                        break;
+                    case "init":
+                        this._socket.send(
+                            JSON.stringify({
+                                type: "config",
+                                // Start in the current namespace
+                                namespace: this.namespace,
+                                // We don't want the server to send ANSI escape codes since we can't handle them in our textarea
+                                rawMode: true,
+                            })
+                        );
+                        break;
+                    case "color": {
+                        // TODO - will this ever happen with rawmode true?
+                        break;
+                    }
+                }
+            });
+    }
+
+    private output(text: string) {
+        if (this._panel) {
+            this._panel.webview.postMessage({
+                command: "output",
+                text,
+            });
+        }
+    }
 
     dispose() {
-        this._disposables.forEach(d => d.dispose());
+        if (
+            this._socket &&
+            this._socket.readyState !== this._socket.CLOSED &&
+            this._socket.readyState !== this._socket.CLOSING
+        ) {
+            this._socket.close();
+        }
+        this._disposables.forEach((d) => d.dispose());
         mapExplorers.delete(`${this.serverId}:${this.namespace}`);
     }
 }
