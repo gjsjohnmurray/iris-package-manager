@@ -49,8 +49,25 @@ window.addEventListener('message', event => {
 });
 
 window.onload = function() {
-  const taOutput = document.querySelector('#taOutput');
+
   const tfCommand = document.querySelector('#tfCommand');
+  const taOutput = document.querySelector('#taOutput');
+  document.querySelectorAll('.cmdButton').forEach((btn) => {
+    btn.addEventListener('click', (_event) => {
+      var module;
+      document.querySelectorAll('.radioModule').forEach((el) => {
+        if (el.checked) {
+          module = el.dataset.module;
+        }
+      });
+      if (module) {
+        const text = `${btn.dataset.command} ${module}`;
+        tfCommand.value = text;
+        vscode.postMessage({ command: 'input', text });
+      }
+    });
+  });
+
   tfCommand.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       vscode.postMessage({ command: 'input', text: tfCommand.value });

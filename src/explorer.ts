@@ -55,7 +55,7 @@ export class Explorer extends vscode.Disposable {
             "POST",
             this._serverSpec,
             { apiVersion: 1, namespace: this.namespace, path: "/action/query" },
-            { query: 'SELECT * FROM %ZPM_PackageManager_Developer."Module"' }
+            { query: 'SELECT * FROM %ZPM_PackageManager_Developer."Module" ORDER BY Name' }
         );
         if (!response) {
             return `Failed to retrieve server '${this.serverId}' information.`;
@@ -157,8 +157,8 @@ export class Explorer extends vscode.Disposable {
     />
   </head>
   <body>
-    <!-- <vscode-collapsible title="Installed" description="Packages in this namespace" open> -->
-      <p>
+    <p>
+    <vscode-collapsible title="Installed" description="Packages in this namespace" open>
         <vscode-table class="packages" zebra bordered-columns resizable columns='["15%", "10%", "15%", "60%"]'>
           <vscode-table-header slot="header">
             <vscode-table-header-cell>Name</vscode-table-header-cell>
@@ -166,25 +166,40 @@ export class Explorer extends vscode.Disposable {
             <vscode-table-header-cell>Display Name</vscode-table-header-cell>
             <vscode-table-header-cell>Description</vscode-table-header-cell>
           </vscode-table-header>
-          <vscode-table-body slot="body">` +
-      (rows
+          <vscode-table-body slot="body">`
++   (rows
         ? rows
-            .map(
-              (row: any) => `
+            .map((row: any, index: number) => `
             <vscode-table-row>
-              <vscode-table-cell>${row.Name}</vscode-table-cell>
+              <vscode-table-cell>
+                <vscode-radio class="radioModule" data-module="${row.Name}" ${index === 0 ? 'checked' : ''}>
+                  ${row.Name}
+                </vscode-radio>
+              </vscode-table-cell>
               <vscode-table-cell>${row.VersionString}</vscode-table-cell>
               <vscode-table-cell>${row.ExternalName}</vscode-table-cell>
               <vscode-table-cell>${row.Description}</vscode-table-cell>
             </vscode-table-row>`
             )
             .join("")
-        : "") +
-      `
+        : ""
+    )
++ `
           </vscode-table-body>
         </vscode-table>
-      </p>
-    <!-- </vscode-collapsible> -->
+        <vscode-divider></vscode-divider>`
++   (rows?.length === 0
+        ? 'No packages found<br/>'
+        : `
+        &nbsp;
+        <vscode-button id="cmdFind" class="cmdButton" data-command="search">Find in Repositories</vscode-button>
+        <vscode-button id="cmdDependents" class="cmdButton" secondary data-command="list-dependents">List Dependents</vscode-button>
+        <vscode-button id="cmdReinstall" class="cmdButton" secondary data-command="reinstall">Reinstall</vscode-button>
+        <br/>`
+    )
++ `
+    </vscode-collapsible>
+    </p>
     <p>
       <vscode-textfield
         id="tfCommand"
