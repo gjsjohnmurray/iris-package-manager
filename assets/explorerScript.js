@@ -12,7 +12,8 @@ window.addEventListener('message', event => {
     case 'load':
       //console.log(message.serverSpec);
       //console.log(message.namespace);
-      //console.log(message.rows);
+      //console.log(message.registryRows);
+      //console.log(message.moduleRows);
       break;
     case 'output':
       //console.log(message.text);
@@ -54,6 +55,57 @@ window.onload = function() {
 
   const tfCommand = document.querySelector('#tfCommand');
   const taOutput = document.querySelector('#taOutput');
+
+  document.querySelector('#radioRepoNoModule').checked = true;
+  document.querySelectorAll('.radioRepoModule').forEach((radio) => {
+    if (radio.id === 'radioRepoNoModule') {
+      radio.addEventListener('click', (_event) => {
+        document.querySelectorAll('.cmdRepoButton').forEach((btn) => {
+          btn.disabled = true;
+        });
+      });
+    } else {
+      radio.addEventListener('click', (_event) => {
+        document.querySelectorAll('.cmdRepoButton').forEach((btn) => {
+          btn.disabled = false;
+        });
+      });
+    }
+  });
+
+  document.querySelectorAll('.cmdRepoButton').forEach((btn) => {
+    btn.addEventListener('click', (_event) => {
+      var repo = btn.dataset.reponame;
+      var module;
+      document.querySelectorAll('.radioRepoModule').forEach((el) => {
+        if (el.checked) {
+          module = el.dataset.module;
+        }
+      });
+      if (repo && module) {
+        const text = `${btn.dataset.command} ${repo}/${module}`;
+        vscode.postMessage({ command: 'input', text });
+        tfCommand.value = text;
+        tfCommand.wrappedElement.setSelectionRange(0, text.length);
+        tfCommand.wrappedElement.focus();
+      }
+    });
+  });
+
+  document.querySelectorAll('.radioModule').forEach((radio) => {
+    radio.addEventListener('click', (_event) => {
+      document.querySelectorAll('.cmdButton').forEach((btn) => {
+        btn.disabled = false;
+      });
+    });
+  });
+
+  document.querySelectorAll('.btnOpenModuleRepo').forEach((btn) => {
+    btn.addEventListener('click', (_event) => {
+      vscode.postMessage({ command: 'openExternal', url: btn.dataset.url });
+    });
+  });
+
   document.querySelectorAll('.cmdButton').forEach((btn) => {
     btn.addEventListener('click', (_event) => {
       var module;
@@ -84,7 +136,7 @@ window.onload = function() {
 
   const btnHelp = document.querySelector('#btnHelp');
   btnHelp.addEventListener('click', (_event) => {
-    vscode.postMessage({ command: 'help'});
+    vscode.postMessage({ command: 'openExternal', url: 'https://github.com/intersystems/ipm/wiki/02.-CLI-commands' });
   });
   const btnClear = document.querySelector('#btnClear');
   btnClear.addEventListener('click', (_event) => {

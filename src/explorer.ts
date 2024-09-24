@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import WebSocket = require("ws");
 import { makeRESTRequest, resolveCredentials } from './makeRESTRequest';
 import { IServerSpec, mapExplorers, ourExtensionUri, serverManagerApi } from './extension';
+import { AxiosResponse } from 'axios';
+import { registryRESTRequest } from './registryRESTRequest';
 
 /** Data received from the WebSocket */
 interface WebSocketMessage {
@@ -39,6 +41,7 @@ export class Explorer extends vscode.Disposable {
     }
 
     public async initialize(): Promise<string> {
+        let response: AxiosResponse | undefined;
         if (!ourExtensionUri) {
             return "Error: ourAssetPath is not set.";
         }
@@ -51,20 +54,36 @@ export class Explorer extends vscode.Disposable {
 
         // Always resolve credentials because even though the /api/mgmnt endpoint may permit unauthenticated access the endpoints we are interested in may not.
         await resolveCredentials(this._serverSpec);
-        const response = await makeRESTRequest(
+        
+        response = await makeRESTRequest(
+            "POST",
+            this._serverSpec,
+            { apiVersion: 1, namespace: this.namespace, path: "/action/query" },
+            { query: 'SELECT Name, Details, URL FROM %ZPM_PackageManager_Client.RemoteServerDefinition ORDER BY Name' }
+        );
+        if (!response) {
+            return `Failed to retrieve server '${this.serverId}' registries information for namespace ${this.namespace}.`;
+        }
+        if (response?.status !== 200) {
+            return `Failed to retrieve server '${this.serverId}' registries information for namespace ${this.namespace}. Status: ${response?.status}`;
+        }
+        this._cookies = response.headers["set-cookie"] || [];
+        const registryRows = response.data?.result?.content;
+
+        response = await makeRESTRequest(
             "POST",
             this._serverSpec,
             { apiVersion: 1, namespace: this.namespace, path: "/action/query" },
             { query: 'SELECT * FROM %ZPM_PackageManager_Developer."Module" ORDER BY Name' }
         );
         if (!response) {
-            return `Failed to retrieve server '${this.serverId}' information.`;
+            return `Failed to retrieve server '${this.serverId}' modules information for namespace ${this.namespace}.`;
         }
         if (response?.status !== 200) {
-            return `Failed to retrieve server '${this.serverId}' information. Status: ${response?.status}`;
+            return `Failed to retrieve server '${this.serverId}' modules information for namespace ${this.namespace}. Status: ${response?.status}`;
         }
         this._cookies = response.headers["set-cookie"] || [];
-        const rows = response.data?.result?.content;
+        const moduleRows = response.data?.result?.content;
 
         // Create and show a new webview
         const assetsUri = vscode.Uri.joinPath(ourExtensionUri, "assets");
@@ -99,7 +118,8 @@ export class Explorer extends vscode.Disposable {
                             command: "load",
                             serverSpec: this._serverSpec,
                             namespace: this.namespace,
-                            rows,
+                            registryRows,
+                            moduleRows,
                         });
                         this._state = "prompt";
                         return;
@@ -125,8 +145,8 @@ export class Explorer extends vscode.Disposable {
                             }
                         }
                         return;
-                    case "help":
-                        vscode.env.openExternal(vscode.Uri.parse("https://github.com/intersystems/ipm/wiki/02.-CLI-commands"));
+                    case "openExternal":
+                        vscode.env.openExternal(vscode.Uri.parse(message.url));
                         return;
                 }
             },
@@ -135,6 +155,21 @@ export class Explorer extends vscode.Disposable {
         );
 
         // We are using VSCode Elements (see https://vscode-elements.github.io/)
+
+        //TODO get actual repo contents
+        const repoName = registryRows[0]?.Name;
+        let repoRows = [];
+        if (registryRows[0]?.URL) {
+            const url = registryRows[0].URL;
+            response = await registryRESTRequest('GET', url + '/packages/-/all');
+            if (!response) {
+                return `Failed to retrieve from ${url}.`;
+            }
+            if (response?.status !== 200) {
+                return `Failed to retrieve from ${url}. Status: ${response?.status}`;
+            }
+            repoRows = response.data;
+        }
 
         const html =
 `<!DOCTYPE html>
@@ -158,7 +193,74 @@ export class Explorer extends vscode.Disposable {
   </head>
   <body>
     <p>
-    <vscode-collapsible title="Installed" description="Packages in this namespace" open>
+    <vscode-collapsible title="Available" description="${repoRows.length} package${repoRows.length === 1 ? '' : 's'} in remote repository '${repoName}' at ${registryRows[0].Details}">
+        <vscode-table zebra bordered-columns resizable columns='["25%", "55%", "15%", "5%"]' style="height: 300px;">
+          <vscode-table-header slot="header">
+            <vscode-table-header-cell>Name</vscode-table-header-cell>
+            <vscode-table-header-cell>Description</vscode-table-header-cell>
+            <vscode-table-header-cell>Versions</vscode-table-header-cell>
+            <vscode-table-header-cell>Source</vscode-table-header-cell>
+          </vscode-table-header>
+    <!-- TODO filtering
+          <vscode-table-header slot="header">
+            <vscode-table-header-cell><vscode-textfield title="Filter the Names"></vscode-textfield></vscode-table-header-cell>
+            <vscode-table-header-cell><vscode-textfield title="Filter the Descriptions"></vscode-textfield></vscode-table-header-cell>
+            <vscode-table-header-cell></vscode-table-header-cell>
+            <vscode-table-header-cell></vscode-table-header-cell>
+          </vscode-table-header>
+    -->
+          <vscode-table-body slot="body">`
++   (repoRows
+        ? repoRows
+            .map((row: any, index: number) => `
+            <vscode-table-row>
+              <vscode-table-cell>
+                <vscode-radio class="radioRepoModule" name="radioRepoModule" title="Select" data-module="${row.name}">
+                  ${row.name}
+                </vscode-radio>
+              </vscode-table-cell>
+              <vscode-table-cell>${row.description}</vscode-table-cell>
+              <vscode-table-cell>${row.versions.join(', ')}</vscode-table-cell>
+              <vscode-table-cell><vscode-icon class="btnOpenModuleRepo" name="repo" action-icon title="${row.repository}" data-url="${row.repository}"></vscode-icon></vscode-table-cell>
+            </vscode-table-row>`
+            )
+            .join("")
+        : ""
+    )
+
+/* TODO - filtering
+    // Two dummy rows to ensure we can scroll the final row into view, because the extra header row for filtering confuses the widget
++ `
+            <vscode-table-row>
+              <vscode-table-cell></vscode-table-cell>
+              <vscode-table-cell></vscode-table-cell>
+              <vscode-table-cell></vscode-table-cell>
+              <vscode-table-cell></vscode-table-cell>
+            </vscode-table-row>
+            <vscode-table-row>
+              <vscode-table-cell></vscode-table-cell>
+              <vscode-table-cell></vscode-table-cell>
+              <vscode-table-cell></vscode-table-cell>
+              <vscode-table-cell></vscode-table-cell>
+            </vscode-table-row>
+          </vscode-table-body>`
+*/
++ `
+        </vscode-table>
+        <vscode-divider></vscode-divider>`
++   (repoRows?.length === 0
+        ? '&nbsp&No packages found<br/>&nbsp'
+        : `
+        &nbsp;&nbsp;
+        <vscode-radio class="radioRepoModule" id="radioRepoNoModule" name="radioRepoModule" title="Deselect"></vscode-radio>
+        <vscode-button class="cmdRepoButton" title="Install Selected Package Here" data-command="install" data-repoName="${repoName}" disabled>Install</vscode-button>
+        <br/>&nbsp;`
+    )
++ `
+    </vscode-collapsible>
+    </p>
+    <p>
+    <vscode-collapsible title="Installed" description="${moduleRows.length} package${moduleRows.length === 1 ? '' : 's'} in this namespace" open>
         <vscode-table class="packages" zebra bordered-columns resizable columns='["15%", "10%", "15%", "60%"]'>
           <vscode-table-header slot="header">
             <vscode-table-header-cell>Name</vscode-table-header-cell>
@@ -167,12 +269,12 @@ export class Explorer extends vscode.Disposable {
             <vscode-table-header-cell>Description</vscode-table-header-cell>
           </vscode-table-header>
           <vscode-table-body slot="body">`
-+   (rows
-        ? rows
-            .map((row: any, index: number) => `
++   (moduleRows
+        ? moduleRows
+            .map((row: any) => `
             <vscode-table-row>
               <vscode-table-cell>
-                <vscode-radio class="radioModule" data-module="${row.Name}" ${index === 0 ? 'checked' : ''}>
+                <vscode-radio class="radioModule" name="radioModule" data-module="${row.Name}"}>
                   ${row.Name}
                 </vscode-radio>
               </vscode-table-cell>
@@ -188,13 +290,14 @@ export class Explorer extends vscode.Disposable {
           </vscode-table-body>
         </vscode-table>
         <vscode-divider></vscode-divider>`
-+   (rows?.length === 0
++   (moduleRows?.length === 0
         ? '&nbsp&No packages found<br/>&nbsp'
         : `
         &nbsp;
-        <vscode-button id="cmdFind" class="cmdButton" data-command="search">Find in Repositories</vscode-button>
-        <vscode-button id="cmdDependents" class="cmdButton" secondary data-command="list-dependents">List Dependents</vscode-button>
-        <vscode-button id="cmdReinstall" class="cmdButton" secondary data-command="reinstall">Reinstall</vscode-button>
+        <vscode-button class="cmdButton" title="Find Selected Package in Configured Repositories" data-command="search" disabled>Find in Repositories</vscode-button>
+        <vscode-button class="cmdButton" title="List Packages Depending on Selected Package" data-command="list-dependents" disabled>List Dependents</vscode-button>
+        <vscode-button class="cmdButton" title="Reinstall Selected Package" data-command="reinstall" disabled>Reinstall</vscode-button>
+        <vscode-button class="cmdButton" title="Uninstall Selected Package" icon="warning" secondary data-command="uninstall -recurse" disabled>Uninstall</vscode-button>
         <br/>&nbsp;`
     )
 + `
