@@ -17,7 +17,9 @@ window.addEventListener('message', event => {
     case 'output':
       //console.log(message.text);
       taOutput.value += message.text;
-      taOutput.wrappedElement.scrollTop = taOutput.wrappedElement.scrollHeight;
+      setTimeout(() => {
+        taOutput.wrappedElement.scrollTop = taOutput.wrappedElement.scrollHeight;
+      }, 0);
       tfCommand.wrappedElement.setSelectionRange(0, tfCommand.value.length);
       break;
     case 'setCommand':
@@ -62,8 +64,10 @@ window.onload = function() {
       });
       if (module) {
         const text = `${btn.dataset.command} ${module}`;
-        tfCommand.value = text;
         vscode.postMessage({ command: 'input', text });
+        tfCommand.value = text;
+        tfCommand.wrappedElement.setSelectionRange(0, text.length);
+        tfCommand.wrappedElement.focus();
       }
     });
   });

@@ -189,13 +189,13 @@ export class Explorer extends vscode.Disposable {
         </vscode-table>
         <vscode-divider></vscode-divider>`
 +   (rows?.length === 0
-        ? 'No packages found<br/>'
+        ? '&nbsp&No packages found<br/>&nbsp'
         : `
         &nbsp;
         <vscode-button id="cmdFind" class="cmdButton" data-command="search">Find in Repositories</vscode-button>
         <vscode-button id="cmdDependents" class="cmdButton" secondary data-command="list-dependents">List Dependents</vscode-button>
         <vscode-button id="cmdReinstall" class="cmdButton" secondary data-command="reinstall">Reinstall</vscode-button>
-        <br/>`
+        <br/>&nbsp;`
     )
 + `
     </vscode-collapsible>
@@ -227,7 +227,7 @@ export class Explorer extends vscode.Disposable {
       <br/>
       <vscode-textarea
         id="taOutput"
-        placeholder="Output of commands will appear here.\nIf a command prompts for input while executing, enter it in the text field above."
+        placeholder="\n Output from commands will appear here.\n\n If a command prompts for input while executing, respond in the text field above."
         readonly
         monospace
         cols="80"
