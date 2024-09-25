@@ -294,6 +294,7 @@ export class Explorer extends vscode.Disposable {
         ? '&nbsp&No packages found<br/>&nbsp'
         : `
         &nbsp;
+        <vscode-button class="cmdButton" title="Install Latest Version" data-command="install" disabled>Install Latest</vscode-button>
         <vscode-button class="cmdButton" title="Find Selected Package in Configured Repositories" data-command="search" disabled>Find in Repositories</vscode-button>
         <vscode-button class="cmdButton" title="List Packages Depending on Selected Package" data-command="list-dependents" disabled>List Dependents</vscode-button>
         <vscode-button class="cmdButton" title="Reinstall Selected Package" data-command="reinstall" disabled>Reinstall</vscode-button>
