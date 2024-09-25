@@ -1,6 +1,6 @@
 ## 1.0.3 [25-Sep-2024]
 * Tabulate contents of registry and support install from there.
-* Add 'Install Patest' command button.
+* Add 'Install Latest' command button.
 * Improve README.
 
 ## 1.0.2 [24-Sep-2024]
