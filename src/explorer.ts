@@ -291,7 +291,7 @@ export class Explorer extends vscode.Disposable {
         </vscode-table>
         <vscode-divider></vscode-divider>`
 +   (moduleRows?.length === 0
-        ? '&nbsp&No packages found<br/>&nbsp'
+        ? '&nbsp;No packages found<br/>&nbsp'
         : `
         &nbsp;
         <vscode-button class="cmdButton" title="Install Latest Version" data-command="install" disabled>Install Latest</vscode-button>
