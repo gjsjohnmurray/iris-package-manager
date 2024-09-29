@@ -2,7 +2,7 @@
   "name": "iris-package-manager",
   "displayName": "InterSystems Package Manager",
   "description": "Manage IPM / ZPM packages on your InterSystems IRIS servers",
-  "version": "1.0.4-SNAPSHOT",
+  "version": "1.0.4",
   "publisher": "georgejames",
   "engines": {
     "vscode": "^1.92.0"
@@ -37,6 +37,11 @@
         "command": "iris-package-manager.intersystems-servermanager",
         "title": "Package Manager",
         "icon": "$(package)"
+      },
+      {
+        "command": "iris-package-manager.ObjectScriptExplorer",
+        "title": "Package Manager",
+        "icon": "$(package)"
       }
     ],
     "menus": {
@@ -45,11 +50,20 @@
           "command": "iris-package-manager.intersystems-servermanager",
           "when": "view == intersystems-community_servermanager && viewItem =~ /namespace$/ && viewItem > 6",
           "group": "inline@25"
+        },
+        {
+          "command": "iris-package-manager.ObjectScriptExplorer",
+          "when": "view == ObjectScriptExplorer && viewItem =~ /^serverNode/",
+          "group": "inline@25"
         }
       ],
       "commandPalette": [
         {
           "command": "iris-package-manager.intersystems-servermanager",
+          "when": "false"
+        },
+        {
+          "command": "iris-package-manager.ObjectScriptExplorer",
           "when": "false"
         }
       ]

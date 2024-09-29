@@ -58,6 +58,44 @@ export async function activate(context: vscode.ExtensionContext) {
 		mapExplorers.set(keyInMap, explorer);
 		context.subscriptions.push(explorer);
  	}));
+  
+	// The command we add to a root node of the ObjectScriptExplorer view's tree
+	context.subscriptions.push(vscode.commands.registerCommand('iris-package-manager.ObjectScriptExplorer', async (explorerRootItem) => {
+		const conn = explorerRootItem.conn;
+		if (conn.apiVersion < 7) {
+			vscode.window.showErrorMessage('Package Manager only available on InterSystems IRIS 2023.2 and later.');
+			return;
+		}
+		const serverId = `${conn.host}:${conn.port}`;
+		const namespace = explorerRootItem.namespace;
+		const keyInMap = `${serverId}:${namespace}`;
+		let explorer = mapExplorers.get(keyInMap);
+		if (explorer) {
+			explorer.show();
+			return;
+		}
+		
+		explorer = new Explorer(serverId, namespace);
+		const serverSpec: IServerSpec = {
+			name: serverId,
+			webServer: {
+				scheme: conn.https ? 'https' : 'http',
+				host: conn.host,
+				port: conn.port,
+				pathPrefix: conn.pathPrefix
+			},
+			username: conn.username,
+			password: conn.password
+		};
+		const errorText = await explorer.initialize(serverSpec);
+		if (errorText) {
+			vscode.window.showErrorMessage(errorText);
+			return;
+		}
+
+		mapExplorers.set(keyInMap, explorer);
+		context.subscriptions.push(explorer);
+ 	}));
 }
 
 export function deactivate() {
