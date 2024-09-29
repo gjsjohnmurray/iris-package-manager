@@ -40,20 +40,21 @@ export class Explorer extends vscode.Disposable {
         this.namespace = namespace;
     }
 
-    public async initialize(): Promise<string> {
+    public async initialize(serverSpec?: IServerSpec): Promise<string> {
         let response: AxiosResponse | undefined;
         if (!ourExtensionUri) {
             return "Error: ourAssetPath is not set.";
         }
-        this._serverSpec = await serverManagerApi.getServerSpec(
-            this.serverId
-        );
-        if (!this._serverSpec) {
-            return `Server definition '${this.serverId}' not found.`;
+        if (!serverSpec) {
+            serverSpec = await serverManagerApi.getServerSpec(this.serverId);
+            if (!serverSpec) {
+                return `Server definition '${this.serverId}' not found.`;
+            }
+    
+            // Always resolve credentials because even though the /api/mgmnt endpoint may permit unauthenticated access the endpoints we are interested in may not.
+            await resolveCredentials(serverSpec);
         }
-
-        // Always resolve credentials because even though the /api/mgmnt endpoint may permit unauthenticated access the endpoints we are interested in may not.
-        await resolveCredentials(this._serverSpec);
+        this._serverSpec = serverSpec;
         
         response = await makeRESTRequest(
             "POST",
