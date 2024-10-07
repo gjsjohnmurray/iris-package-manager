@@ -85,6 +85,7 @@
     "@vscode-elements/elements": "^1.6.1",
     "axios": "^1.7.7",
     "axios-cookiejar-support": "^5.0.2",
+    "semver": "^7.6.3",
     "tough-cookie": "^4.1.4",
     "ws": "^8.18.0"
   },
@@ -92,6 +93,7 @@
     "@types/vscode": "^1.92.0",
     "@types/mocha": "^10.0.7",
     "@types/node": "20.x",
+    "@types/semver": "^7.5.8",
     "@types/tough-cookie": "4.0.5",
     "@types/ws": "8.5.12",
     "@typescript-eslint/eslint-plugin": "^7.14.1",

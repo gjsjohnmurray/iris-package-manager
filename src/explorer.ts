@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as semver from 'semver';
 import WebSocket = require("ws");
 import { makeRESTRequest, resolveCredentials } from './makeRESTRequest';
 import { IServerSpec, mapExplorers, ourExtensionUri, serverManagerApi } from './extension';
@@ -97,7 +98,7 @@ export class Explorer extends vscode.Disposable {
                 localResourceRoots: [assetsUri, nodeModulesUri],
                 retainContextWhenHidden: true, // Keep the page when its tab is not visible, otherwise it will be reloaded when the tab is revisited.
                 enableScripts: true,
-                enableFindWidget: false, // TODO - enable when https://github.com/microsoft/vscode/issues/177046 is fixed.
+                enableFindWidget: semver.gte(vscode.version, "1.95.0-insider"), // https://github.com/microsoft/vscode/issues/177046 got fixed in 1.95.
             }
         );
         panel.onDidDispose(
@@ -157,7 +158,6 @@ export class Explorer extends vscode.Disposable {
 
         // We are using VSCode Elements (see https://vscode-elements.github.io/)
 
-        //TODO get actual repo contents
         const repoName = registryRows[0]?.Name;
         let repoRows = [];
         if (registryRows[0]?.URL) {
@@ -197,7 +197,7 @@ export class Explorer extends vscode.Disposable {
   </head>
   <body>
     <p>
-    <vscode-collapsible title="Available" description="${repoRows.length} package${repoRows.length === 1 ? '' : 's'} in remote repository '${repoName}' at ${registryRows[0].Details}">
+    <vscode-collapsible title="Available" description="${repoRows.length} package${repoRows.length === 1 ? '' : 's'} in remote repository '${repoName}' at ${registryRows[0].Details}${panel.options.enableFindWidget ? ' (Ctrl/Cmd + F to search when unfolded)' : ''}">
         <vscode-table zebra bordered-columns resizable columns='["25%", "55%", "15%", "5%"]' style="height: 300px;">
           <vscode-table-header slot="header">
             <vscode-table-header-cell>Name</vscode-table-header-cell>
