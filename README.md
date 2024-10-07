@@ -7,7 +7,7 @@ This extension works with the [InterSystems Server Manager](https://marketplace.
 1. In Server Manager expand the Namespaces folder of the IRIS server **(2023.2 or later)** where you want to manage packages. Or if you are using the client-side development paradigm, go to the ObjectScript Explorer view.
 2. Use the new Package Manager action button on the row of the namespace you want to work in. The first time you do this for a server you will be prompted to permit this extension to use the server credentials. Approve this.
 3. In the IPM tab that appears in the editor area you can:
-   - Browse a list of packages published by the remote repository your server namespace is configured to use. View their source repositories. Install them into your namespace.
+   - Browse a list of packages published by the remote repository your server namespace is configured to use. Search the list using Ctrl/Cmd + F (requires VS Code version 1.95 or later). View their source repositories. Install them into your namespace.
    - Perform a range of operations on installed packages, including installing the latest version, reinstalling the current package, or uninstalling it.
    - Enter any IPM command. The output will display in the textarea.
 
@@ -21,7 +21,7 @@ This extension uses the InterSystems Lite Terminal's REST endpoint and websocket
 2. Assumes IPM is already installed on the server. See [the IPM project](https://github.com/intersystems/ipm#installing-objectscript-package-manager-client) for instructions.
 3. Tables do not refresh. For example after installing / updating / uninstalling a package its entry doesn't appear / update / disappear. Workaround is to close the tab and reopen it.
 4. The 'Available' table is currently hardwired to the first remote repository your IPM is configured to use.
-5. VS Code's built-in Find widget (Ctrl/Cmd+F) has been disabled until it no longer causes a [crash](https://github.com/microsoft/vscode/issues/177046).
+5. VS Code's built-in Find widget (Ctrl/Cmd+F) is only enabled when running on 1.95 or later because that feature causes a [crash](https://github.com/microsoft/vscode/issues/177046) on earlier versions.
 
 ## Release Notes
 

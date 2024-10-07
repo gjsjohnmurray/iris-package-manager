@@ -1,3 +1,6 @@
+## 1.0.6 [dd-Mmm-yyyy]
+* Enable Ctrl/Cmd + F searching on VS Code 1.95+.
+
 ## 1.0.5 [07-Oct-2024]
 * Support repositories requiring authentication (resolves issue [#1](https://github.com/gjsjohnmurray/iris-package-manager/issues/1)).
 
