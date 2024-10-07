@@ -60,7 +60,7 @@ export class Explorer extends vscode.Disposable {
             "POST",
             this._serverSpec,
             { apiVersion: 1, namespace: this.namespace, path: "/action/query" },
-            { query: 'SELECT Name, Details, URL FROM %ZPM_PackageManager_Client.RemoteServerDefinition ORDER BY Name' }
+            { query: 'SELECT Name, Details, URL, Username, Password FROM %ZPM_PackageManager_Client.RemoteServerDefinition ORDER BY Name' }
         );
         if (!response) {
             return `Failed to retrieve server '${this.serverId}' registries information for namespace ${this.namespace}.`;
@@ -161,13 +161,16 @@ export class Explorer extends vscode.Disposable {
         const repoName = registryRows[0]?.Name;
         let repoRows = [];
         if (registryRows[0]?.URL) {
-            const url = registryRows[0].URL;
-            response = await registryRESTRequest('GET', url + '/packages/-/all');
+            let {URL, Username, Password} = registryRows[0];
+            if (URL.endsWith('/')) {
+                URL = URL.slice(0, -1);
+            }
+            response = await registryRESTRequest('GET', URL + '/packages/-/all', Username, Password);
             if (!response) {
-                return `Failed to retrieve from ${url}.`;
+                return `Failed to retrieve from ${URL}.`;
             }
             if (response?.status !== 200) {
-                return `Failed to retrieve from ${url}. Status: ${response?.status}`;
+                return `Failed to retrieve from ${URL}. Status: ${response?.status}`;
             }
             repoRows = response.data;
         }

@@ -1,3 +1,6 @@
+## 1.0.5 [07-Oct-2024]
+* Support repositories requiring authentication (resolves issue [#1](https://github.com/gjsjohnmurray/iris-package-manager/issues/1)).
+
 ## 1.0.4 [29-Sep-2024]
 * Add to ObjectScript Explorer to support client-side development paradigm, including with Docker (resolves issue [#2](https://github.com/gjsjohnmurray/iris-package-manager/issues/2)).
 

@@ -2,6 +2,7 @@ import axios, { AxiosResponse } from "axios";
 import * as vscode from "vscode";
 import * as https from 'https';
 import { cookieJar } from "./makeRESTRequest";
+import { AxiosRequestConfig } from "axios";
 
 export interface IRegistryRESTEndpoint {
     apiVersion: number;
@@ -20,6 +21,8 @@ export interface IRegistryRESTEndpoint {
 export async function registryRESTRequest(
     method: "HEAD"|"GET"|"POST",
     url: string,
+    username: string,
+    password: string,
     data?: any,
     ): Promise<AxiosResponse | undefined> {
 
@@ -28,46 +31,24 @@ export async function registryRESTRequest(
 
     // Make the request
     try {
-        let respdata: AxiosResponse;
-        if (data !== undefined) {
-            // There is a data payload
-            respdata = await axios.request(
-                {
-                    httpsAgent,
-                    data,
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    jar: cookieJar,
-                    method,
-                    url: encodeURI(url),
-                    validateStatus: (status) => {
-                        return status < 500;
-                    },
-                    withCredentials: true,
-                },
-            );
-            if (respdata.status === 401) {
-                // TODO - implement authentication
-            }
-        } else {
-            // No data payload
-            respdata = await axios.request(
-                {
-                    httpsAgent,
-                    jar: cookieJar,
-                    method,
-                    url: encodeURI(url),
-                    validateStatus: (status) => {
-                        return status < 500;
-                    },
-                    withCredentials: true,
-                },
-            );
-            if (respdata.status === 401) {
-                // TODO - implement authentication
-            }
+        const request: AxiosRequestConfig = {
+            httpsAgent,
+            jar: cookieJar,
+            data,
+            method,
+            url: encodeURI(url),
+            validateStatus: (status) => {
+                return status < 500;
+            },
+            withCredentials: true,
+        };
+        if (username !== "" && password !== "") {
+            request.auth = {
+                username,
+                password,
+            };
         }
+        const respdata: AxiosResponse = await axios.request(request);
         return respdata;
     } catch (error) {
         console.log(error);

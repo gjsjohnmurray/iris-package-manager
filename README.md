@@ -4,7 +4,7 @@ This extension works with the [InterSystems Server Manager](https://marketplace.
 
 ## Use
 
-1. In Server Manager expand the Namespaces folder of the IRIS server **(2023.2 or later)** where you want to manage packages.
+1. In Server Manager expand the Namespaces folder of the IRIS server **(2023.2 or later)** where you want to manage packages. Or if you are using the client-side development paradigm, go to the ObjectScript Explorer view.
 2. Use the new Package Manager action button on the row of the namespace you want to work in. The first time you do this for a server you will be prompted to permit this extension to use the server credentials. Approve this.
 3. In the IPM tab that appears in the editor area you can:
    - Browse a list of packages published by the remote repository your server namespace is configured to use. View their source repositories. Install them into your namespace.
