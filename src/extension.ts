@@ -1,27 +1,13 @@
 import * as vscode from 'vscode';
+import { IServerSpec, ServerManagerAPI } from "@intersystems-community/intersystems-servermanager";
 import { Explorer } from './explorer';
-
-export interface IWebServerSpec {
-    scheme?: string;
-    host: string;
-    port: number;
-    pathPrefix?: string;
-}
-
-export interface IServerSpec {
-    name: string;
-    webServer: IWebServerSpec;
-    username?: string;
-    password?: string;
-    description?: string;
-}
 
 export let ourExtensionUri: vscode.Uri | undefined = undefined;
 
 // Map to limit to one explorer per server:namespace
 export const mapExplorers: Map<string, Explorer> = new Map<string, Explorer>();
 
-export let serverManagerApi: any; 
+export let serverManagerApi: ServerManagerAPI; 
 export async function activate(context: vscode.ExtensionContext) {
 	ourExtensionUri = context.extensionUri;
 

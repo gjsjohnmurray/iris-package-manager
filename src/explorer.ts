@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import * as semver from 'semver';
 import WebSocket = require("ws");
+import { IServerSpec } from "@intersystems-community/intersystems-servermanager";
 import { makeRESTRequest, resolveCredentials } from './makeRESTRequest';
-import { IServerSpec, mapExplorers, ourExtensionUri, serverManagerApi } from './extension';
+import { mapExplorers, ourExtensionUri, serverManagerApi } from './extension';
 import { AxiosResponse } from 'axios';
 import { registryRESTRequest } from './registryRESTRequest';
 
