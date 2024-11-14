@@ -99,7 +99,7 @@ export class Explorer extends vscode.Disposable {
                 localResourceRoots: [assetsUri, nodeModulesUri],
                 retainContextWhenHidden: true, // Keep the page when its tab is not visible, otherwise it will be reloaded when the tab is revisited.
                 enableScripts: true,
-                enableFindWidget: semver.gte(vscode.version, "1.95.0-insider"), // https://github.com/microsoft/vscode/issues/177046 got fixed in 1.95.
+                enableFindWidget: true,
             }
         );
         panel.onDidDispose(
