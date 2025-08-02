@@ -62,7 +62,26 @@ export class Explorer extends vscode.Disposable {
             "POST",
             this._serverSpec,
             { apiVersion: 1, namespace: this.namespace, path: "/action/query" },
-            { query: 'SELECT Name, Details, URL, Username, Password FROM %ZPM_PackageManager_Client.RemoteServerDefinition ORDER BY Name' }
+            { query: "SELECT SCHEMA_NAME AS SchemaName FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '%IPM_Repo_Remote' OR SCHEMA_NAME = '%ZPM_PackageManager_Client'" }
+        );
+        if (!response) {
+            return `Failed to query server '${this.serverId}' SQL schemata for namespace ${this.namespace}.`;
+        }
+        if (response?.status !== 200) {
+            return `Failed to query server '${this.serverId}' SQL schemata for namespace ${this.namespace}. Status: ${response?.status}`;
+        }
+        this._cookies = response.headers["set-cookie"] || [];
+        const schemata = response.data?.result?.content;
+        if (!schemata.length) {
+            return `IPM not available on server '${this.serverId}' in namespace ${this.namespace}.`;
+        }
+        let tableName = schemata[0].SchemaName === "%IPM_Repo_Remote" ? "%IPM_Repo_Remote.Definition" : "%ZPM_PackageManager_Client.RemoteServerDefinition";
+
+        response = await makeRESTRequest(
+            "POST",
+            this._serverSpec,
+            { apiVersion: 1, namespace: this.namespace, path: "/action/query" },
+            { query: `SELECT Name, Details, URL, Username, Password FROM ${tableName} ORDER BY Name` }
         );
         if (!response) {
             return `Failed to retrieve server '${this.serverId}' registries information for namespace ${this.namespace}.`;
@@ -72,12 +91,16 @@ export class Explorer extends vscode.Disposable {
         }
         this._cookies = response.headers["set-cookie"] || [];
         const registryRows = response.data?.result?.content;
+        if (!registryRows?.length) {
+            return `Server '${this.serverId}' namespace ${this.namespace} has no configured remote IPM registries.`;
+        }
 
+        tableName = schemata[0].SchemaName === "%IPM_Repo_Remote" ? '%IPM_Storage.ModuleItem' : '%ZPM_PackageManager_Developer."Module"';
         response = await makeRESTRequest(
             "POST",
             this._serverSpec,
             { apiVersion: 1, namespace: this.namespace, path: "/action/query" },
-            { query: 'SELECT * FROM %ZPM_PackageManager_Developer."Module" ORDER BY Name' }
+            { query: `SELECT * FROM ${tableName} ORDER BY Name` }
         );
         if (!response) {
             return `Failed to retrieve server '${this.serverId}' modules information for namespace ${this.namespace}.`;
