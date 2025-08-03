@@ -1,3 +1,7 @@
+## 1.0.7 [03-Aug-2025]
+* Work with newer versions of IPM (resolves issue [#9](https://github.com/gjsjohnmurray/iris-package-manager/issues/9)).
+* Update dependencies.
+
 ## 1.0.6 [14-Nov-2024]
 * Prevent overprompting for permission and account.
 * Enable Ctrl/Cmd + F searching.
