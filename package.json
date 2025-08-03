@@ -2,7 +2,7 @@
   "name": "iris-package-manager",
   "displayName": "InterSystems Package Manager",
   "description": "Manage IPM / ZPM packages on your InterSystems IRIS servers",
-  "version": "1.0.7",
+  "version": "1.0.8-SNAPSHOT",
   "publisher": "georgejames",
   "engines": {
     "vscode": "^1.95.0"
