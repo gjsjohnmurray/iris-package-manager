@@ -1,4 +1,4 @@
-## 1.0.7 [02-Aug-2025]
+## 1.0.7 [03-Aug-2025]
 * Work with newer versions of IPM (resolves issue [#9](https://github.com/gjsjohnmurray/iris-package-manager/issues/9)).
 * Update dependencies.
 
